@@ -21,6 +21,8 @@ SYNGR1:ENSG00000100321:E7.1_39364266-E8.1 | Alt-5
 
 When you actually run the program, the input LSV would be the one shown above in conjunction with a "background event (LSV)". For brevity, let's stick the the aforementioned notation for now. The input file can be any **tab delimited format with a minimum requirement that there must exist one column named "UID"**, you can specifiy as many additional columns as you want, which are totally optional.
 
+**Figure 1**
+
 ![Figure1: whole workflow](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure1.png)
 
 ## Loading necessary files 
@@ -33,8 +35,12 @@ AltNeo-T will load a bunch of necesary files from `data` folder you specified vi
 
 4. **gtfEnsembl91.txt** (the start exon coordinates for each ENST, will be useful when mannually derive intron events translational phase and Nmer from their junction sequences)
 
+**Figure 2**
 
 ![Figure2: understanding subexon coordinate](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure2.png)
+
+**Figure 3**
+
 ![Figure3: overlapping issues](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure3.png)
 
 ## GTEx check
@@ -56,6 +62,9 @@ If it is a UTR event, in `subexon_tran` function, it will call for `utr_junction
 ## Match each LSV to all potential parantal transcripts, and get whole transcripts' sequence
 
 We want to engraft each LSV event to all of its originated parental transcripts. You may wonder why? It is because if we only use junction sequence and do in-silico translation in a 3-way fashion, it will generate a lot of false positive neoantigen because in reality, only one of 3 translational frame will be adopted. Then how can we infer this correct translational frame? We want to use the whole transcript information, if we know the **T**ranslational **S**tart **S**ite (**TSS**) and the region that junction sequence lies on the whole transcript, we can accurately derive the translational frame, or we call phase. The phase can be in the value of 0, 1 or 2. The way I defined them is shown in **Figure 4**
+
+
+**Figure 4**
 
 ![Figure4: translational frame](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure4.png)
 
@@ -98,6 +107,8 @@ Finally, we will get one optimal ORF for each whole trancript, it might be an em
 Finally, we reach the goal why we bother deriving the parental trancripts for each LSV. Now we will map the junction sequence, TSS to whole trancript and derive translational phase, illustrated in **Figure 4**. It is noteworthy that to further control the false discoveries, we restrict the splicing events in a way that if the junction region falls out of predicted optimal ORF, we will not consider this splicing event-ORF pair, illustrated in **Figure 5**. If in the previous step, we fail to recover its whole transcript, we may need to trigger "mannual" function to treat them individually and derive tranlational phase, it may be not able to generate perfect phase but we will try our best.
 
 When having translational phase, we can derive Nmer, N can be 8,9,10 and 11. This is the whole search space that will be subjected to MHC presentation prediction (binding prediction).
+
+**Figure 5**
 
 ![Figure 5](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure5.png)
 
