@@ -21,7 +21,7 @@ SYNGR1:ENSG00000100321:E7.1_39364266-E8.1 | Alt-5
 
 When you actually run the program, the input LSV would be the one shown above in conjunction with a "background event (LSV)". For brevity, let's stick the the aforementioned notation for now. The input file can be any **tab delimited format with a minimum requirement that there must exist one column named "UID"**, you can specifiy as many additional columns as you want, which are totally optional.
 
-![Figure1: whole workflow]("")
+![Figure1: whole workflow](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure1.png)
 
 ## Loading necessary files 
 
@@ -34,8 +34,8 @@ AltNeo-T will load a bunch of necesary files from `data` folder you specified vi
 4. **gtfEnsembl91.txt** (the start exon coordinates for each ENST, will be useful when mannually derive intron events translational phase and Nmer from their junction sequences)
 
 
-![Figure2: understanding subexon coordinate]("../images/Figure2.png")
-![Figure3: overlapping issues](")
+![Figure2: understanding subexon coordinate](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure2.png)
+![Figure3: overlapping issues](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure3.png)
 
 ## GTEx check
 
@@ -57,7 +57,7 @@ If it is a UTR event, in `subexon_tran` function, it will call for `utr_junction
 
 We want to engraft each LSV event to all of its originated parental transcripts. You may wonder why? It is because if we only use junction sequence and do in-silico translation in a 3-way fashion, it will generate a lot of false positive neoantigen because in reality, only one of 3 translational frame will be adopted. Then how can we infer this correct translational frame? We want to use the whole transcript information, if we know the **T**ranslational **S**tart **S**ite (**TSS**) and the region that junction sequence lies on the whole transcript, we can accurately derive the translational frame, or we call phase. The phase can be in the value of 0, 1 or 2. The way I defined them is shown in **Figure 4**
 
-![Figure4: translational frame]("")
+![Figure4: translational frame](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure4.png)
 
 Now we know the reason why we bother to match LSV to its pareantal transcript. The way we actually implement it is to employ a three round search. In the first round search, carried out by function `matchWithExonlist` and its child function `core_match`, we match all the ordinal event to its parental transcript. The idea is fairly simple, LSV `E1.2|E3.1` will match to transcript `E1.1|E1.2|E3.1|E4.1` right? That's it. We just map each LSV event to all its documented transcripts, see if it can match. Hence, the result will be a list of length equal to all documented transcripts for a certain gene (ENSG), if it successfully match the transcript, we will return the whole transcript cDNA sequence, if not, it will return a empty string "". So when you inspect the result from this step, you will see ["","AAAAC...CCTT","TTTT...CCC"], now we know what it means. A rare situation that could happen is that it return a empty list [], it means the ENSG we queried doesn't exist in `mRNA-exonID.txt` file. 
 
@@ -99,7 +99,7 @@ Finally, we reach the goal why we bother deriving the parental trancripts for ea
 
 When having translational phase, we can derive Nmer, N can be 8,9,10 and 11. This is the whole search space that will be subjected to MHC presentation prediction (binding prediction).
 
-![Figure 5]("")
+![Figure 5](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure5.png)
 
 
 ## MHC binding affnity prediction
