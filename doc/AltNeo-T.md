@@ -57,6 +57,8 @@ We also developed a visulization html page called GTEx Viewer which can generate
 
 We will also be able to report a continuous specificity score to quantify how tumor-specific each splicing event is. This is important because in real clinical setting, we want to make sure the neojunction we collected to infer neoantigen is tumor-specific, otherwise targeted T cell will attack normal cell and have fatal side effect. This specificity score is generalizable, as long as you have plausible normal sample with RNA data available, you can derive this specificity score to guide clinical utilization of this pipeline, as shown in **Figure 7** below:
 
+**Figure 7**
+
 ![Figure 7: IW score](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure7.png)
 
 ## Retrieve Junction sequence
