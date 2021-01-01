@@ -49,9 +49,15 @@ We want to focus on neoantigen so it is vital to remove any splicing events that
 
 Before GTEx check, we instantiate `Meta` object, then after GTEx check, we instantiate `NeoJ` object, we are ready to spawn subprocess using python `multiprocessing` package `Pool` function. Basically, it divides the huge input dataframe/series into `n_cores` chunks, each chunk will have exactly same structure as the original ones but less rows. For each chunk, we will start our processing.
 
-We also developed a visulization html page called GTEx Viewer which can generate all expression information for a certain queried splicing event. Just simply run `queryGTEx_PSI.py`
+We also developed a visulization html page called GTEx Viewer which can generate all expression information for a certain queried splicing event. Just simply run `queryGTEx_PSI.py`, as shown in **Figure 6** below:
 
-We will also be able to report a continuous specificity score to quantify how tumor-specific each splicing event is.
+**Figure 6**
+
+![Figure 6: GTEx Viewer](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure6.png)
+
+We will also be able to report a continuous specificity score to quantify how tumor-specific each splicing event is. This is important because in real clinical setting, we want to make sure the neojunction we collected to infer neoantigen is tumor-specific, otherwise targeted T cell will attack normal cell and have fatal side effect. This specificity score is generalizable, as long as you have plausible normal sample with RNA data available, you can derive this specificity score to guide clinical utilization of this pipeline, as shown in **Figure 7** below:
+
+![Figure 7: IW score](https://github.com/frankligy/AltNeo-BT/blob/main/images/Figure7.png)
 
 ## Retrieve Junction sequence
 
