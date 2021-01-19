@@ -2,7 +2,7 @@
 
 Let's first talk about single query.
 
-# For the single mode, we use mhcEnv   (only developer needs to know, users dont' need)
+#### For the single mode, we use mhcEnv   (only developer needs to know, users dont' need)
 
 In order to check the GTEx expression level (PSI) for a single splicing event. For example, `KYAT3:ENSG00000137944:E4.1-I4.1_88965413`, all you need to do is in your terminal, **remember, no need to do any module loading, as long as you have salomonis2 drive access, you should be fine**:
 
@@ -55,7 +55,7 @@ Again, make sure you change the output path.
 
 Now let's talk about multiple query:
 
-# For the multiple mode, we use AltNeo_env   (only developer needs to know, users dont' need)
+#### For the multiple mode, we use AltNeo_env   (only developer needs to know, users dont' need)
 
 I've already made a shell script for job submission, the path is:
 
