@@ -75,10 +75,15 @@ To understand the output files:
 Terminilogy:
 
 `True`: events that do not express in GTEx at an appreciable level
+
 `Unknown`: events that are not detected in GTEx
+
 `False`: events that do not pass the GTEx check
+
 `train`: `True` + `False`
+
 `final`: `True` + `Unknown`
+
 `whole`: `True` + `False` + `Unknown`
 
 1. `singleSample_check.txt`: `final` file that pass the GTEx test, will be used for further step in the program for in-silico translation and neoantigen prioritization. 
