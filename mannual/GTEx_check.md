@@ -5,7 +5,7 @@ Let's first talk about single query.
 In order to check the GTEx expression level (PSI) for a single splicing event. For example, `KYAT3:ENSG00000137944:E4.1-I4.1_88965413`, all you need to do is in your terminal, **remember, no need to do any module loading, as long as you have salomonis2 drive access, you should be fine**:
 
 ```
-/data/salomonis2/LabFiles/Frank-Li/mhc/test_AltNeo/ -e KYAT3:ENSG00000137944:E4.1-I4.1_88965413 -c 0.1 -m savage -t all -p True -d /data/salomonis2/LabFiles/Frank-Li/python3/data -o /data/salomonis2/LabFiles/Frank-Li/mhc/test_AltNeo/GTEx_viewer
+/data/salomonis2/LabFiles/Frank-Li/mhc/test_AltNeo/queryGTEx_PSI.py -e KYAT3:ENSG00000137944:E4.1-I4.1_88965413 -c 0.1 -m savage -t all -p True -d /data/salomonis2/LabFiles/Frank-Li/python3/data -o /data/salomonis2/LabFiles/Frank-Li/mhc/test_AltNeo/GTEx_viewer
 ```
 
 A full prompt:
@@ -72,7 +72,7 @@ No matter how big your input file is, the program needs to take **40** minutes o
 
 To understand the output files:
 
-Terminilogy:
+Terminology:
 
 `True`: events that do not express in GTEx at an appreciable level
 
