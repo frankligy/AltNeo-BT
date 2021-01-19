@@ -29,7 +29,7 @@ The most important parameter you make sure to modify is the output folder, it de
 If you instead want to know the raw read count information for a single spicing event, run following:
 
 ```
-/data/salomonis2/LabFiles/Frank-Li/mhc/test_AltNeo/queryGTEx_counts.py -e KYAT3:ENSG00000137944:E4.1-I4.1_88965413 -c 5 -o /data/salmonis2/LabFiles/Frank-Li/mhc/test_AltNeo/GTEx_viewer_count -d /data/salomonis2/LabFiles/Frank-Li/python3/data -m savage -t all -p True
+/data/salomonis2/LabFiles/Frank-Li/mhc/test_AltNeo/queryGTEx_counts.py -e KYAT3:ENSG00000137944:E4.1-I4.1_88965413 -c 5 -o /data/salomonis2/LabFiles/Frank-Li/mhc/test_AltNeo/GTEx_viewer_count -d /data/salomonis2/LabFiles/Frank-Li/python3/data -m savage -t all -p True
 ```
 
 A full prompt:
