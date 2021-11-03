@@ -81,8 +81,65 @@ class NeoJunction():
             self.junction = '$' * 10   # indicating invalid uid
         return junction
 
+    def in_silico_translation(self,ks=[9,10]):
+        peptides = {k:[] for k in ks}
+        if '$' not in self.junction and '*' not in self.junction and '#' not in self.junction:
+            first,second = self.junction.split(',')
+            for phase in [0,1,2]:  # tranlation starts with index "phase"
+                de_facto_first = first[phase:]
+                pep_dict = get_peptides(de_facto_first,second,ks)
+                for k in ks:
+                    peptides[k].extend(pep_dict[k])
+                    peptides[k] = list(set(peptides[k]))
+        self.peptides = peptides
+        return peptides
+
+
+
 
 # processing functions
+def get_peptides(de_facto_first,second,ks):
+    peptides = {k:[] for k in ks}
+    extra = len(de_facto_first) % 3  # how many base left in first assuming no stop condon in front of it.
+    num = len(de_facto_first) // 3   # how many set of codons in the first.
+    aa_first = str(Seq(de_facto_first).translate(to_stop=True))
+    if len(aa_first) == num:  # successfully read through
+        if extra == 0:
+            continue_second = second
+        elif extra == 1:
+            continue_second = de_facto_first[-1] + second
+        elif extra == 2:
+            continue_second = de_facto_first[-2:] + second
+        aa_second = str(Seq(continue_second).translate(to_stop=True))
+        if len(aa_second) > 0:  # at least, not ''
+            for k in ks:
+                second_most = min(k,len(aa_second)) # the max allowed number of base for aa_second
+                first_most = len(aa_first)  # the max allowed number of base for aa_first
+                for n_from_second in range(second_most,0,-1):
+                    n_from_first = k - n_from_second
+                    if n_from_first == 0 and extra == 0:
+                        '''
+                        cttca cct cac ttt acc ttc tcc tcc agc aca gga act agg aac tac gga gag aga agc caa 
+                           S   P   H   F   T   F   S   S   S   T   G   T   R   N   Y   G   E   R   S   Q
+
+                        the common is between "ttt" and "acc"
+                        so, when extra == 0, means whole second will be after the junction, in this case, we have to require 
+                        the peptide at least include a amino acid from first part, otherwise, TFSSSTGTR won't be a splice-derived
+                        peptide.   
+
+                        this example can be reproduced using: nj = NeoJunction('ENSG00000223572:E15.1-E15.2')                     
+                        '''
+                        continue
+                    if n_from_first <= first_most:
+                        if n_from_first > 0:
+                            pep = aa_first[-n_from_first:] + aa_second[:n_from_second]
+                        elif n_from_first == 0:
+                            pep = aa_second[:n_from_second]
+                        peptides[k].append(pep)
+    return peptides
+                        
+
+
 def fasta_to_dict(path):
     '''
     Let's talk about the fasta file
@@ -316,11 +373,14 @@ def subexon_tran(subexon,EnsID,flag):  # flag either site1 or site2
 
 
 
+
 if __name__ == '__main__':
     dict_exonCoords = exonCoords_to_dict('../data/Hs_Ensembl_exon_add_col.txt')
     dict_fa = fasta_to_dict('../data/Hs_gene-seq-2000_flank.fa')
-    exon_seq = subexon_tran('E2.1_105625354','ENSG00000211892','site1')
-    print(exon_seq)
+    nj = NeoJunction('ENSG00000223572:E15.1-E15.2')
+    print(nj.detect_type())
+    print(nj.retrieve_junction_seq())
+    print(nj.in_silico_translation())
 
 
     sys.exit('stop')
