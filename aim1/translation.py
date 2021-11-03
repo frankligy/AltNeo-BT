@@ -19,11 +19,72 @@ import xmltodict
 from Bio.SeqIO.FastaIO import SimpleFastaParser
 from Bio.Seq import Seq
 
+# other modules
+from binding import run_netMHCpan
+from deepimmuno import run_deepimmuno
+
 '''
 Now for a junction, you need to obtain the translated neo-epitopes, simply put, you just need two things
 1. junction DNA sequence
 2. How to translate them
 '''
+
+class EnhancedPeptides():
+    def __init__(self,peptides,hlas,kind):
+        self.mers = []
+        self.info = []
+        for k,v in peptides.items():
+            self.mers.append(k)
+            phlas = {}  # {pep1:{hla1:{}}}
+            for pep in v:
+                if kind == 0:  # each pep is just a string
+                    pairs = {}
+                    for hla in hlas:
+                        pairs[hla] = {}
+                    phlas[pep] = pairs
+                elif kind == 1:   # echo pep is (pep,hla)
+                    try: 
+                        phlas[pep[0]][pep[1]] = {}
+                    except KeyError:
+                        phlas[pep[0]] = {}
+                        phlas[pep[0]][pep[1]] = {}
+            self.info.append(phlas)
+
+    def __str__(self):
+        return str(self.info)
+
+    def register_attr(self,df,attr_name):
+        '''
+        df should follow:
+          peptide     mer     hla       score    identity
+         AAAAAAAAA     9   HLA-A*01:01   0.3       SB        
+        '''
+        for mer,sub_df in df.groupby(by='mer'):
+            index = self.mers.index(int(mer))
+            for peptide,sub_sub_df in sub_df.groupby(by='peptide'):
+                for row in sub_sub_df.itertuples(index=False):
+                    self.info[index][peptide][row.hla][attr_name] = (row.score,row.identity)
+
+    def filter_based_on_criterion(self,criteria):
+        # criterion: [(net),], ['netMHCpan_el',1,==,SB]
+        peptides = {k:[] for k in self.mers}
+        for i,k in enumerate(self.mers):
+            for pep,hla_complex in self.info[i].items():
+                for hla,attrs in hla_complex.items():
+                    boolean_list = []
+                    for criterion in criteria:
+                        boolean = eval('attrs[\'{}\'][{}] {} \'{}\''.format(criterion[0],criterion[1],criterion[2],criterion[3]))
+                        boolean_list.append(boolean)
+                    boolean_final = all(boolean_list)
+                    if boolean_final:
+                        peptides[k].append((pep,hla))
+        return peptides
+
+
+
+
+        
+
 
 class NeoJunction():
     def __init__(self,uid):
@@ -94,10 +155,46 @@ class NeoJunction():
         self.peptides = peptides
         return peptides
 
+    def binding_prediction(self,hlas):
+        ep = EnhancedPeptides(self.peptides,hlas,0)
+        for k,v in self.peptides.items():
+            df = run_netMHCpan(software_path,v,hla_formatting(hlas,'netMHCpan_output','netMHCpan_input'),k)
+            ep.register_attr(df,'netMHCpan_el')
+        self.enhanced_peptides = ep
+        return ep
 
-
+    def immunogenecity_prediction(self):
+        reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',1,'==','SB'),])
+        ep = EnhancedPeptides(reduced,hlas,1)
+        for k,v in reduced.items():
+            data = np.array(v)
+            df_input = pd.DataFrame(data=data)
+            df_input[1] = hla_formatting(df_input[1].tolist(),'netMHCpan_output','deepimmuno')
+            df_output = run_deepimmuno(df_input)
+            df = pd.DataFrame({'peptide':df_output['peptide'].values,'mer':[k]*df_output.shape[0],
+                               'hla':hla_formatting(df_output['HLA'].values.tolist(),'deepimmuno','netMHCpan_output'),
+                               'score':df_output['immunogenicity'].values,
+                               'identity':[True if item > 0.5 else False for item in df_output['immunogenicity'].values]})
+            ep.register_attr(df,attr_name='deepimmuno_immunogenicity')
+            self.enhanced_peptides.register_attr(df,attr_name='deepimmuno_immunogenicity')
+        return ep
+        
+            
 
 # processing functions
+def hla_formatting(pre,pre_type,post_type):
+    if pre_type == 'netMHCpan_output' and post_type == 'netMHCpan_input':  # HLA-A*01:01 to HLA-A01:01
+        post = [hla.replace('*','') for hla in pre]
+    elif pre_type == 'netMHCpan_output' and post_type == 'deepimmuno':  # HLA-A*01:01 to HLA-A*0101
+        post = [hla.replace(':','') for hla in pre]
+    elif pre_type == 'deepimmuno' and post_type == 'netMHCpan_output': # HLA-A*0101 to HLA-A*01:01
+        post = [hla[:8] + ':' + hla[-2:] for hla in pre]
+    return post
+
+
+
+
+
 def get_peptides(de_facto_first,second,ks):
     peptides = {k:[] for k in ks}
     extra = len(de_facto_first) % 3  # how many base left in first assuming no stop condon in front of it.
@@ -377,10 +474,16 @@ def subexon_tran(subexon,EnsID,flag):  # flag either site1 or site2
 if __name__ == '__main__':
     dict_exonCoords = exonCoords_to_dict('../data/Hs_Ensembl_exon_add_col.txt')
     dict_fa = fasta_to_dict('../data/Hs_gene-seq-2000_flank.fa')
+    software_path = '../external/netMHCpan-4.1/netMHCpan'
+    hlas = ['HLA-A*01:01','HLA-A*02:01','HLA-A*24:02','HLA-A*68:01','HLA-B*08:01','HLA-B*08:02']
     nj = NeoJunction('ENSG00000223572:E15.1-E15.2')
-    print(nj.detect_type())
-    print(nj.retrieve_junction_seq())
-    print(nj.in_silico_translation())
+    nj.detect_type()
+    nj.retrieve_junction_seq()
+    nj.in_silico_translation()
+    nj.binding_prediction(hlas=hlas)
+    nj.immunogenecity_prediction()
+
+
 
 
     sys.exit('stop')
