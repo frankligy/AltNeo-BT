@@ -23,7 +23,9 @@ from Bio.Seq import Seq
 # other modules
 from binding import run_netMHCpan
 from deepimmuno import run_deepimmuno
+from data_io import *
 from visualize import *
+from gtex import *
 
 '''
 Now for a junction, you need to obtain the translated neo-epitopes, simply put, you just need two things
@@ -105,8 +107,17 @@ class EnhancedPeptides():
 
 
 class NeoJunction():
-    def __init__(self,uid):
+    def __init__(self,uid,count):
+        is_neojunction(uid,count)
         self.uid = uid
+        self.count = count
+
+    @staticmethod
+    def is_neojunction(uid,count):
+        identity = cruel_tumor_specificity(uid,count)
+        if not identity:
+            raise Exception('This is not a NeoJunction, instantiation fails')
+
     
     def detect_type(self):
         '''
@@ -234,7 +245,7 @@ class NeoJunction():
             else:
                 ax.axis('off') 
         fig.subplots_adjust(top=0.9)             
-        fig.suptitle('{}'.format(self.uid))
+        fig.suptitle('{} Count:{}'.format(self.uid,self.count))
         plt.savefig(name,bbox_inches='tight')
         plt.close()
 
@@ -296,28 +307,6 @@ def get_peptides(de_facto_first,second,ks):
                         
 
 
-def fasta_to_dict(path):
-    '''
-    Let's talk about the fasta file
-    >ENSG|chro|start|end
-    seq
-
-    the start and end always correspond to xth base in forward strand,
-    however, if the ENSG falls into backward strand, the seq it stored is actually the 
-    backward strand from its own 5' - 3'.
-    '''
-    dict_fa = {}  # {ENSID, [chro,start,end,seq]}
-    with open(path,'r') as in_handle:
-        for title,seq in SimpleFastaParser(in_handle):
-            temp_list = []
-            EnsID = title.split('|')[0]
-            chro = title.split('|')[1]
-            start = title.split('|')[2]
-            end = title.split('|')[3]
-            temp_list=[chro,start,end,seq]
-            dict_fa[EnsID] = temp_list
-    return dict_fa
-
 def query_from_dict_fa(abs_start,abs_end,EnsID,strand):
     '''
     abs_start and abs_end always means the xth base in forward strand
@@ -377,29 +366,6 @@ def is_suffer_from_overhang(path):
     return df
             
 
-
-
-
-def exonCoords_to_dict(path):
-    '''
-    1. the start and end always forward strand
-    2. to clarify the overhang issue, the issue is every middle subexon, its end coord need to be backtracted by 1.
-    However, this is different operationally in + and - strand. positive strand is to substract the end by 1 (for middle subexon).
-    the negative strand is to add the start by 1 (for middle subexon.)
-    '''
-    coords=[]
-    dict_exonCoords={} # {'EnsID':{E1.1:[chr,strand,start,end,suffer]}} 
-    with open(path,'r') as file:
-        next(file)
-        for line in file:
-            items = line.split('\t')
-            coords=(items[2],items[3],items[4],items[5],items[10].rstrip('\n'))
-            if items[0] in dict_exonCoords:
-                dict_exonCoords[items[0]][items[1]] = coords
-            else:
-                dict_exonCoords[items[0]] = {}
-                dict_exonCoords[items[0]][items[1]] = coords
-    return dict_exonCoords
 
 def utrAttrs(EnsID):  # try to get U0.1's attribute, but dict_exonCoords doesn't have, so we just wanna get the first entry for its EnsGID
     exonDict = dict_exonCoords[EnsID] 
@@ -531,17 +497,25 @@ def subexon_tran(subexon,EnsID,flag):  # flag either site1 or site2
 
 
 if __name__ == '__main__':
+    # two files the program need
     dict_exonCoords = exonCoords_to_dict('../data/Hs_Ensembl_exon_add_col.txt')
     dict_fa = fasta_to_dict('../data/Hs_gene-seq-2000_flank.fa')
+    # install netMHCpan, and optitype will connect to hlas
     software_path = '../external/netMHCpan-4.1/netMHCpan'
     hlas = ['HLA-A*01:01','HLA-A*02:01','HLA-A*24:02','HLA-A*68:01','HLA-B*08:01','HLA-B*08:02']
-    nj = NeoJunction('ENSG00000223572:E15.1-E15.2')
+    # start to query
+    nj = NeoJunction(uid='ENSG00000223572:E15.1-E15.2',count=30)
     nj.detect_type()
     nj.retrieve_junction_seq()
     nj.in_silico_translation()
     nj.binding_prediction(hlas=hlas)
     nj.immunogenecity_prediction()
     nj.visualize()
+
+
+
+
+
 
 
 
