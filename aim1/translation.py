@@ -7,6 +7,7 @@ import sys
 import pickle
 import h5py
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import anndata as ad
 import seaborn as sns
 from scipy import stats
@@ -22,6 +23,7 @@ from Bio.Seq import Seq
 # other modules
 from binding import run_netMHCpan
 from deepimmuno import run_deepimmuno
+from visualize import *
 
 '''
 Now for a junction, you need to obtain the translated neo-epitopes, simply put, you just need two things
@@ -198,7 +200,6 @@ class NeoJunction():
         return ep
 
     def visualize(self,name='../scratch/check.pdf'):
-        from matplotlib.patches import Rectangle 
         reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',1,'==','SB'),('deepimmuno_immunogenicity',1,'==',True),])
         '''
         {9: [('LPSPPAQEL', 2, 0, 'HLA-B*08:01'), ('LPSPPAQEL', 2, 0, 'HLA-B*08:02')], 10: []}
@@ -209,8 +210,17 @@ class NeoJunction():
             to_draw.extend(v)
             n_axes += len(v)
         ncols = 4
-        fig,axes = plt.subplots(ncols=ncols,nrows=n_axes//ncols+1,figsize=(10,5),gridspec_kw={'wspace':0.5,'hspace':0.5})
-        for i,ax in enumerate(axes.flat):
+        nrows = n_axes // ncols + 1 + 1
+        fig = plt.figure()
+        gs = mpl.gridspec.GridSpec(nrows=nrows,ncols=ncols,height_ratios=(0.2,0.8),wspace=0.5,hspace=0.5)
+        ax_genome  = fig.add_subplot(gs[0,:])
+        axes_list = []
+        for i in range(1,gs.nrows):
+            for j in range(0,gs.ncols):
+                ax = fig.add_subplot(gs[i,j])
+                axes_list.append(ax)
+        ax_genome = draw_genome(ax_genome,self.uid,dict_exonCoords)
+        for i,ax in enumerate(axes_list):
             if i < n_axes:
                 # info
                 aa, extra, n_from_first, hla = to_draw[i]
@@ -218,62 +228,17 @@ class NeoJunction():
                 dna_first = extra + n_from_first * 3
                 dna_second = -extra + (len(aa)-n_from_first) * 3
                 binding_score = self.enhanced_peptides[len(aa)][aa][hla]['netMHCpan_el'][0]
-                immunogenicity_score = self.enhanced_peptides[len(aa)][aa][hla]['deepimmuno_immunogenicity'][0]
-                # set lim
-                ax.set_xlim(0,100)
-                ax.set_ylim(0,100)
-                # draw exons
-                rect_first = Rectangle((30,5),20,10,linewidth=1,edgecolor='k',facecolor='blue')
-                rect_second = Rectangle((50,5),20,10,linewidth=1,edgecolor='k',facecolor='orange')
-                ax.add_patch(rect_first)
-                ax.add_patch(rect_second)
-                # draw junction seq
-                seq_first_text = ax.text(x=50,y=20,s=first[-dna_first:],color='blue',va='bottom',ha='right',fontsize=5)
-                seq_second_text = ax.text(x=50,y=20,s=second[:dna_second+1],color='orange',va='bottom',ha='left',fontsize=5)
-                plt.pause(0.01)
-                # draw aa seq
-                bbox_coords = ax.transData.inverted().transform(seq_first_text.get_window_extent().get_points())
-                width = bbox_coords[1,0] - bbox_coords[0,0]
-                height = bbox_coords[1,1] - bbox_coords[0,1]
-                start_x = bbox_coords[0,0] + width / (2 * dna_first) * 3
-                start_y = 20 + height + 5
-                tmp_aa_list = []
-                tmp_aa_list[:] = aa
-                aa_to_draw = '  '.join(tmp_aa_list)
-                aa_text = ax.text(x=start_x,y=start_y,s=aa_to_draw,color='r',fontweight='bold',fontsize=5)
-                plt.pause(0.01)
-                # draw barplot for scores
-                barcontainer = ax.bar(x=[25,75],height=[50*binding_score,50*immunogenicity_score],bottom=50,width=20,color=['#158BFB','#F2075D'])
-                ax.text(x=barcontainer[0].get_x() + barcontainer[0].get_width()/2,y=50,s='binding',fontsize=5,va='top',ha='center')
-                ax.text(x=barcontainer[1].get_x() + barcontainer[1].get_width()/2,y=50,s='immunogenicity',fontsize=5,va='top',ha='center')
-                ax.text(x=barcontainer[0].get_x() + barcontainer[0].get_width()/2,y=barcontainer[0].get_y() + barcontainer[0].get_height(),s='{}'.format(binding_score),fontsize=5,va='bottom',ha='center')
-                ax.text(x=barcontainer[1].get_x() + barcontainer[1].get_width()/2,y=barcontainer[1].get_y() + barcontainer[1].get_height(),s='{}'.format(immunogenicity_score),fontsize=5,va='bottom',ha='center')
-                # annotate HLA and score
-                ax.set_title('{}'.format(hla))
-                # remove tick and labels
-                ax.set_xticks([])
-                ax.set_yticks([])
+                immunogenicity_score = self.enhanced_peptides[len(aa)][aa][hla]['deepimmuno_immunogenicity'][0]          
+                # draw     
+                ax = show_candicates(ax,aa,extra,n_from_first,hla,first,second,dna_first,dna_second,binding_score,immunogenicity_score) 
             else:
-                ax.axis('off')
-            fig.suptitle('{}'.format(self.uid))
+                ax.axis('off') 
+        fig.subplots_adjust(top=0.9)             
+        fig.suptitle('{}'.format(self.uid))
         plt.savefig(name,bbox_inches='tight')
         plt.close()
-                
 
-
-
-
-
-
-
-
-
-            
-
-
-
-        
-            
+       
 
 # processing functions
 def hla_formatting(pre,pre_type,post_type):
