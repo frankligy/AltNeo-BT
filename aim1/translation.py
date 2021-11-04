@@ -35,23 +35,29 @@ class EnhancedPeptides():
         self.info = []
         for k,v in peptides.items():
             self.mers.append(k)
-            phlas = {}  # {pep1:{hla1:{}}}
+            phlas = {}  # {pep1:{origin:(extra,n_from_first),hla1:{},hla2:{}}}
             for pep in v:
-                if kind == 0:  # each pep is just a string
+                if kind == 0:  # each pep is (pep,extra,n_from_first)
                     pairs = {}
+                    pairs['origin'] = (pep[1],pep[2])
                     for hla in hlas:
                         pairs[hla] = {}
-                    phlas[pep] = pairs
-                elif kind == 1:   # echo pep is (pep,hla)
-                    try: 
-                        phlas[pep[0]][pep[1]] = {}
+                    phlas[pep[0]] = pairs
+                elif kind == 1:   # echo pep is (pep,extra,n_from_first,hla)
+                    try:
+                        phlas[pep[0]]['origin'] = (pep[1],pep[2])
                     except KeyError:
                         phlas[pep[0]] = {}
-                        phlas[pep[0]][pep[1]] = {}
+                        phlas[pep[0]]['origin'] = (pep[1],pep[2])
+                    phlas[pep[0]][pep[3]] = {}
             self.info.append(phlas)
 
     def __str__(self):
         return str(self.info)
+
+    def __getitem__(self,key):
+        index = self.mers.index(key)
+        return self.info[index]
 
     def register_attr(self,df,attr_name):
         '''
@@ -70,14 +76,24 @@ class EnhancedPeptides():
         peptides = {k:[] for k in self.mers}
         for i,k in enumerate(self.mers):
             for pep,hla_complex in self.info[i].items():
+                extra,n_from_first = hla_complex['origin']
                 for hla,attrs in hla_complex.items():
+                    if hla == 'origin':
+                        continue
                     boolean_list = []
                     for criterion in criteria:
-                        boolean = eval('attrs[\'{}\'][{}] {} \'{}\''.format(criterion[0],criterion[1],criterion[2],criterion[3]))
+                        if type(criterion[3]) == bool:
+                            eval_string = 'attrs[\'{}\'][{}] {} {}'.format(criterion[0],criterion[1],criterion[2],criterion[3])
+                        else:
+                            eval_string = 'attrs[\'{}\'][{}] {} \'{}\''.format(criterion[0],criterion[1],criterion[2],criterion[3])
+                        try:
+                            boolean = eval(eval_string)                            
+                        except KeyError:
+                            boolean = False
                         boolean_list.append(boolean)
                     boolean_final = all(boolean_list)
                     if boolean_final:
-                        peptides[k].append((pep,hla))
+                        peptides[k].append((pep,extra,n_from_first,hla))
         return peptides
 
 
@@ -158,6 +174,7 @@ class NeoJunction():
     def binding_prediction(self,hlas):
         ep = EnhancedPeptides(self.peptides,hlas,0)
         for k,v in self.peptides.items():
+            v = list(zip(*v))[0]
             df = run_netMHCpan(software_path,v,hla_formatting(hlas,'netMHCpan_output','netMHCpan_input'),k)
             ep.register_attr(df,'netMHCpan_el')
         self.enhanced_peptides = ep
@@ -167,7 +184,8 @@ class NeoJunction():
         reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',1,'==','SB'),])
         ep = EnhancedPeptides(reduced,hlas,1)
         for k,v in reduced.items():
-            data = np.array(v)
+            v_pep,v_hla = list(zip(*v))[0],list(zip(*v))[3]
+            data = np.column_stack((v_pep,v_hla))
             df_input = pd.DataFrame(data=data)
             df_input[1] = hla_formatting(df_input[1].tolist(),'netMHCpan_output','deepimmuno')
             df_output = run_deepimmuno(df_input)
@@ -178,6 +196,82 @@ class NeoJunction():
             ep.register_attr(df,attr_name='deepimmuno_immunogenicity')
             self.enhanced_peptides.register_attr(df,attr_name='deepimmuno_immunogenicity')
         return ep
+
+    def visualize(self,name='../scratch/check.pdf'):
+        from matplotlib.patches import Rectangle 
+        reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',1,'==','SB'),('deepimmuno_immunogenicity',1,'==',True),])
+        '''
+        {9: [('LPSPPAQEL', 2, 0, 'HLA-B*08:01'), ('LPSPPAQEL', 2, 0, 'HLA-B*08:02')], 10: []}
+        '''
+        n_axes = 0
+        to_draw = []
+        for k,v in reduced.items():
+            to_draw.extend(v)
+            n_axes += len(v)
+        ncols = 4
+        fig,axes = plt.subplots(ncols=ncols,nrows=n_axes//ncols+1,figsize=(10,5),gridspec_kw={'wspace':0.5,'hspace':0.5})
+        for i,ax in enumerate(axes.flat):
+            if i < n_axes:
+                # info
+                aa, extra, n_from_first, hla = to_draw[i]
+                first,second = self.junction.split(',')
+                dna_first = extra + n_from_first * 3
+                dna_second = -extra + (len(aa)-n_from_first) * 3
+                binding_score = self.enhanced_peptides[len(aa)][aa][hla]['netMHCpan_el'][0]
+                immunogenicity_score = self.enhanced_peptides[len(aa)][aa][hla]['deepimmuno_immunogenicity'][0]
+                # set lim
+                ax.set_xlim(0,100)
+                ax.set_ylim(0,100)
+                # draw exons
+                rect_first = Rectangle((30,5),20,10,linewidth=1,edgecolor='k',facecolor='blue')
+                rect_second = Rectangle((50,5),20,10,linewidth=1,edgecolor='k',facecolor='orange')
+                ax.add_patch(rect_first)
+                ax.add_patch(rect_second)
+                # draw junction seq
+                seq_first_text = ax.text(x=50,y=20,s=first[-dna_first:],color='blue',va='bottom',ha='right',fontsize=5)
+                seq_second_text = ax.text(x=50,y=20,s=second[:dna_second+1],color='orange',va='bottom',ha='left',fontsize=5)
+                plt.pause(0.01)
+                # draw aa seq
+                bbox_coords = ax.transData.inverted().transform(seq_first_text.get_window_extent().get_points())
+                width = bbox_coords[1,0] - bbox_coords[0,0]
+                height = bbox_coords[1,1] - bbox_coords[0,1]
+                start_x = bbox_coords[0,0] + width / (2 * dna_first) * 3
+                start_y = 20 + height + 5
+                tmp_aa_list = []
+                tmp_aa_list[:] = aa
+                aa_to_draw = '  '.join(tmp_aa_list)
+                aa_text = ax.text(x=start_x,y=start_y,s=aa_to_draw,color='r',fontweight='bold',fontsize=5)
+                plt.pause(0.01)
+                # draw barplot for scores
+                barcontainer = ax.bar(x=[25,75],height=[50*binding_score,50*immunogenicity_score],bottom=50,width=20,color=['#158BFB','#F2075D'])
+                ax.text(x=barcontainer[0].get_x() + barcontainer[0].get_width()/2,y=50,s='binding',fontsize=5,va='top',ha='center')
+                ax.text(x=barcontainer[1].get_x() + barcontainer[1].get_width()/2,y=50,s='immunogenicity',fontsize=5,va='top',ha='center')
+                ax.text(x=barcontainer[0].get_x() + barcontainer[0].get_width()/2,y=barcontainer[0].get_y() + barcontainer[0].get_height(),s='{}'.format(binding_score),fontsize=5,va='bottom',ha='center')
+                ax.text(x=barcontainer[1].get_x() + barcontainer[1].get_width()/2,y=barcontainer[1].get_y() + barcontainer[1].get_height(),s='{}'.format(immunogenicity_score),fontsize=5,va='bottom',ha='center')
+                # annotate HLA and score
+                ax.set_title('{}'.format(hla))
+                # remove tick and labels
+                ax.set_xticks([])
+                ax.set_yticks([])
+            else:
+                ax.axis('off')
+            fig.suptitle('{}'.format(self.uid))
+        plt.savefig(name,bbox_inches='tight')
+        plt.close()
+                
+
+
+
+
+
+
+
+
+
+            
+
+
+
         
             
 
@@ -232,7 +326,7 @@ def get_peptides(de_facto_first,second,ks):
                             pep = aa_first[-n_from_first:] + aa_second[:n_from_second]
                         elif n_from_first == 0:
                             pep = aa_second[:n_from_second]
-                        peptides[k].append(pep)
+                        peptides[k].append((pep,extra,n_from_first))
     return peptides
                         
 
@@ -482,6 +576,9 @@ if __name__ == '__main__':
     nj.in_silico_translation()
     nj.binding_prediction(hlas=hlas)
     nj.immunogenecity_prediction()
+    nj.visualize()
+
+
 
 
 
