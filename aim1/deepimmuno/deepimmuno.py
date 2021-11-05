@@ -3,13 +3,23 @@
 '''
 Program to run deepimmuno-cnn
 '''
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import warnings
+warnings.filterwarnings('ignore')
+import logging
+logger = logging.getLogger()   # this is a singleton, all .tf .keras logger will pass the info to this module level rootlogger
+logger.setLevel(level=logging.ERROR)
 import tensorflow as tf
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
 import pandas as pd
 import argparse
-import os
+
+
+
 
 
 def seperateCNN():

@@ -64,6 +64,16 @@ class EnhancedPeptides():
         index = self.mers.index(key)
         return self.info[index]
 
+    def is_empty(self):
+        total = 0
+        for dic in self.info:
+            total += len(dic)
+        if total == 0:
+            return True
+        else:
+            return False
+
+
     def register_attr(self,df,attr_name):
         '''
         df should follow:
@@ -196,6 +206,8 @@ class NeoJunction():
 
     def binding_prediction(self,hlas):
         ep = EnhancedPeptides(self.peptides,hlas,0)
+        if ep.is_empty():
+            raise Exception('Already no candidates after in-silico translation')
         for k,v in self.peptides.items():
             v = list(zip(*v))[0]
             df = run_netMHCpan(software_path,v,hla_formatting(hlas,'netMHCpan_output','netMHCpan_input'),k)
@@ -206,6 +218,8 @@ class NeoJunction():
     def immunogenicity_prediction(self):
         reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',0,'<=',2),])
         ep = EnhancedPeptides(reduced,hlas,1)
+        if ep.is_empty():
+            raise Exception('Already no candidates after binding prediction')
         for k,v in reduced.items():
             v_pep,v_hla = list(zip(*v))[0],list(zip(*v))[3]
             data = np.column_stack((v_pep,v_hla))
@@ -519,9 +533,9 @@ if __name__ == '__main__':
     software_path = '../external/netMHCpan-4.1/netMHCpan'
     hlas = ['HLA-A*01:01','HLA-A*02:01','HLA-A*24:02','HLA-A*68:01','HLA-B*08:01','HLA-B*08:02']
     # start to query
-    nj = NeoJunction(uid='ENSG00000223572:E15.1-E15.2',count=30,check_gtex=False)
+    nj = NeoJunction(uid='ENSG00000229859:E1.5_61204253-E7.1_61211419',count=25,check_gtex=True)
     nj.gtex_viewer(kind=1)
-    nj.infer_tumor_specificity(method='bayesian')
+    # nj.infer_tumor_specificity(method='bayesian')
     nj.detect_type()
     nj.retrieve_junction_seq()
     nj.in_silico_translation()
