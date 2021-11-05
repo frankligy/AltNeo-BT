@@ -8,6 +8,10 @@ import pickle
 import h5py
 import matplotlib.pyplot as plt
 
+# for biopython, pip install biopython
+from Bio.SeqIO.FastaIO import SimpleFastaParser
+from Bio.Seq import Seq
+
 '''
 the pipeline allows seamless integration with all mainstream splicing detection algorithms
 '''

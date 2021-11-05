@@ -39,22 +39,39 @@ def show_candicates(ax,aa,extra,n_from_first,hla,first,second,dna_first,dna_seco
     aa_text = ax.text(x=start_x,y=start_y,s=aa_to_draw,color='r',fontweight='bold',fontsize=5)
     plt.pause(0.01)
     # draw barplot for scores
-    barcontainer = ax.bar(x=[25,75],height=[50*binding_score,50*immunogenicity_score],bottom=50,width=20,color=['#158BFB','#F2075D'])
+    barcontainer = ax.bar(x=[25,75],height=[np.interp(binding_score,xp=(0,2),fp=(0,50)),np.interp(immunogenicity_score,xp=(0,1),fp=(0,50))],bottom=50,width=20,color=['#158BFB','#F2075D'])
     ax.text(x=barcontainer[0].get_x() + barcontainer[0].get_width()/2,y=50,s='binding',fontsize=5,va='top',ha='center')
     ax.text(x=barcontainer[1].get_x() + barcontainer[1].get_width()/2,y=50,s='immunogenicity',fontsize=5,va='top',ha='center')
-    ax.text(x=barcontainer[0].get_x() + barcontainer[0].get_width()/2,y=barcontainer[0].get_y() + barcontainer[0].get_height(),s='{}'.format(binding_score),fontsize=5,va='bottom',ha='center')
-    ax.text(x=barcontainer[1].get_x() + barcontainer[1].get_width()/2,y=barcontainer[1].get_y() + barcontainer[1].get_height(),s='{}'.format(immunogenicity_score),fontsize=5,va='bottom',ha='center')
+    ax.text(x=barcontainer[0].get_x() + barcontainer[0].get_width()/2,y=barcontainer[0].get_y() + barcontainer[0].get_height(),s='{}'.format(binding_score),fontsize=5,va='top',ha='center')
+    ax.text(x=barcontainer[1].get_x() + barcontainer[1].get_width()/2,y=barcontainer[1].get_y() + barcontainer[1].get_height(),s='{}'.format(immunogenicity_score),fontsize=5,va='top',ha='center')
     # annotate HLA and score
-    ax.set_title('{}'.format(hla))
+    ax.set_title('{}'.format(hla),fontsize=5)
     # remove tick and labels
     ax.set_xticks([])
     ax.set_yticks([])
     return ax
 
+def get_base_subexon_and_trail(subexon):
+    if 'U' in subexon:
+        post = subexon
+        trail = None
+    elif 'ENSG' in subexon:
+        post = subexon
+        trail = None
+    elif '_' in subexon:
+        post,trail = subexon.split('_')
+    else:
+        post = subexon
+        trail = None
+    return post,trail
+    
+
 
 def draw_genome(ax,uid,dict_exonCoords):
     ensid = uid.split(':')[0]
     first,second = uid.split(':')[1].split('-')
+    first,trail1 = get_base_subexon_and_trail(first)
+    second,trail2 = get_base_subexon_and_trail(second)
     df_all_subexons = pd.DataFrame(data=dict_exonCoords[ensid]).T
     df_all_subexons.columns = ['chr','strand','start','end','suffer']
     df_all_subexons.sort_values(by='start',inplace=True)
@@ -82,10 +99,7 @@ def draw_genome(ax,uid,dict_exonCoords):
                 subexon_rect = Rectangle((subexon_start,0.4),subexon_end - subexon_start, 0.05,linewidth=0.5,facecolor=facecolor,edgecolor=edgecolor)
                 ax.add_patch(subexon_rect)
                 ax.text(subexon_start,0.3 + 0.2,row.Index,fontsize=1,va='bottom',ha='left',rotation=60)        
-        # final touch
-        ax.set_xticks([0,1])
-        ax.set_xticklabels([starting,ending])     
-        ax.text(0.5,1,chr_,va='top',ha='center',fontsize=5)
+
     else:
         starting, ending = df_all_subexons.iloc[0,3], df_all_subexons.iloc[-1,2] 
         for row in df_all_subexons.itertuples():
@@ -104,11 +118,15 @@ def draw_genome(ax,uid,dict_exonCoords):
             elif row.Index.startswith('I'):
                 subexon_rect = Rectangle((subexon_start,0.4),subexon_end - subexon_start, 0.05,linewidth=0.5,facecolor=facecolor,edgecolor=edgecolor)
                 ax.add_patch(subexon_rect)
-                ax.text(subexon_start,0.3 + 0.2,row.Index,fontsize=1,va='bottom',ha='left',rotation=60)        
-        # final touch
-        ax.set_xticks([0,1])
-        ax.set_xticklabels([starting,ending])     
-        ax.text(0.5,1,chr_,va='top',ha='center',fontsize=5)              
+                ax.text(subexon_start,0.3 + 0.2,row.Index,fontsize=1,va='bottom',ha='left',rotation=60)     
+
+    # final touch
+    ax.set_xticks([0,1])
+    ax.set_xticklabels([starting,ending])     
+    ax.text(0.5,1,chr_,va='top',ha='center',fontsize=5)  
+    for trail in [trail1,trail2]:
+        if trail is not None:
+            ax.axvline(x=np.interp(x=int(trail),xp=[starting,ending],fp=[0,1]),ymin=0.2,ymax=0.6)            
     return ax
 
 

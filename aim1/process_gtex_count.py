@@ -37,7 +37,10 @@ common = list(set(sra_table['Run'].values).intersection(set(adata.var_names)))
 sra_table = sra_table.loc[sra_table['Run'].isin(common),:]
 srr_to_tissue = sra_table.set_index('Run').squeeze().to_dict()
 adata.var['tissue'] = adata.var_names.map(srr_to_tissue).values
-print(adata)
+adata.obs['mean'] = np.array(adata.X.mean(axis=1)).squeeze()
+adata.obs['std'] = adata.X.toarray().std(axis=1)
+total_count = np.array(adata.X.sum(axis=0)).squeeze() / 1e6
+adata.var['total_count'] = total_count
 adata.write(os.path.join(data_folder,'GTEx_junction_counts.h5ad'))
 
 

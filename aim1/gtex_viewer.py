@@ -19,10 +19,6 @@ this is gtex viewer
 
 def gtex_visual_norm_count_combined(data_folder,query,out_folder='.'):
     adata = ad.read_h5ad(os.path.join(data_folder,'GTEx_junction_counts.h5ad'))
-    adata.obs['mean'] = np.array(adata.X.mean(axis=1)).squeeze()
-    total_count = np.array(adata.X.sum(axis=0)).squeeze() / 1e6
-    adata.var['total_count'] = total_count
-
     data = adata[query,:].X.toarray().squeeze() / adata.var['total_count'].values
     sns.histplot(data,binwidth=0.01)
     plt.savefig(os.path.join(out_folder,'hist_{}.pdf'.format(query.replace(':','_'))),bbox_inches='tight')
@@ -30,10 +26,6 @@ def gtex_visual_norm_count_combined(data_folder,query,out_folder='.'):
 
 def gtex_visual_per_tissue_count(data_folder,query,out_folder='.'):
     adata = ad.read_h5ad(os.path.join(data_folder,'GTEx_junction_counts.h5ad'))
-    adata.obs['mean'] = np.array(adata.X.mean(axis=1)).squeeze()
-    total_count = np.array(adata.X.sum(axis=0)).squeeze() / 1e6
-    adata.var['total_count'] = total_count
-
     per_tissue_count = []
     for tissue in adata.var['tissue'].unique():
         sub = adata[query,adata.var['tissue']==tissue]
@@ -75,8 +67,6 @@ def gtex_visual_psi(data_folder,query,out_folder='.'):
 
 def gtex_visual_count(data_folder,query,norm=True,out_folder='.'):
     adata = ad.read_h5ad(os.path.join(data_folder,'GTEx_junction_counts.h5ad'))
-    total_count = np.array(adata.X.sum(axis=0)).squeeze() / 1e6
-    adata.var['total_count'] = total_count
     if type(query) == int:
         info = adata[[query],:]
     else:
@@ -105,11 +95,12 @@ def gtex_visual_count(data_folder,query,norm=True,out_folder='.'):
     plt.savefig(os.path.join(out_folder,'gtex_visual_count_{}.pdf'.format(identifier)),bbox_inches='tight')
     plt.close()
 
-data_folder = '/data/salomonis2/LabFiles/Frank-Li/refactor/data'
+
+# data_folder = '/data/salomonis2/LabFiles/Frank-Li/refactor/data'
 # gtex_visual_psi(data_folder,'STPG1:ENSG00000001460:E15.2-E27.1|ENSG00000001460:I12.2-E27.1','/data/salomonis2/LabFiles/Frank-Li/refactor/gtex_viewer')
 # gtex_visual_count(data_folder,'ENSG00000274565:U0.1_62627849-E1.1_62627009',True,'/data/salomonis2/LabFiles/Frank-Li/refactor/gtex_viewer')
 # gtex_visual_norm_count_combined(data_folder,'ENSG00000112149:E7.1-E9.1','/data/salomonis2/LabFiles/Frank-Li/refactor/gtex_viewer')
-gtex_visual_per_tissue_count(data_folder,'ENSG00000112149:E7.1-E9.1','/data/salomonis2/LabFiles/Frank-Li/refactor/gtex_viewer')
+# gtex_visual_per_tissue_count(data_folder,'ENSG00000112149:E7.1-E9.1','/data/salomonis2/LabFiles/Frank-Li/refactor/gtex_viewer')
 
 
 

@@ -26,6 +26,7 @@ from deepimmuno import run_deepimmuno
 from data_io import *
 from visualize import *
 from gtex import *
+from gtex_viewer import *
 
 '''
 Now for a junction, you need to obtain the translated neo-epitopes, simply put, you just need two things
@@ -73,7 +74,7 @@ class EnhancedPeptides():
             index = self.mers.index(int(mer))
             for peptide,sub_sub_df in sub_df.groupby(by='peptide'):
                 for row in sub_sub_df.itertuples(index=False):
-                    self.info[index][peptide][row.hla][attr_name] = (row.score,row.identity)
+                    self.info[index][peptide][row.hla][attr_name] = (float(row.score),str(row.identity))
 
     def filter_based_on_criterion(self,criteria):
         # criterion: [(net),], ['netMHCpan_el',1,==,SB]
@@ -86,10 +87,10 @@ class EnhancedPeptides():
                         continue
                     boolean_list = []
                     for criterion in criteria:
-                        if type(criterion[3]) == bool:
-                            eval_string = 'attrs[\'{}\'][{}] {} {}'.format(criterion[0],criterion[1],criterion[2],criterion[3])
-                        else:
+                        if criterion[1] == 1:
                             eval_string = 'attrs[\'{}\'][{}] {} \'{}\''.format(criterion[0],criterion[1],criterion[2],criterion[3])
+                        elif criterion[1] == 0:
+                            eval_string = 'attrs[\'{}\'][{}] {} {}'.format(criterion[0],criterion[1],criterion[2],criterion[3])
                         try:
                             boolean = eval(eval_string)                            
                         except KeyError:
@@ -101,22 +102,31 @@ class EnhancedPeptides():
         return peptides
 
 
-
-
-        
-
-
 class NeoJunction():
-    def __init__(self,uid,count):
-        is_neojunction(uid,count)
+    def __init__(self,uid,count,check_gtex):
+        if check_gtex:
+            NeoJunction.is_neojunction(uid,count)
         self.uid = uid
         self.count = count
 
     @staticmethod
     def is_neojunction(uid,count):
-        identity = cruel_tumor_specificity(uid,count)
+        identity = crude_tumor_specificity(uid,count)
         if not identity:
             raise Exception('This is not a NeoJunction, instantiation fails')
+
+    def infer_tumor_specificity(self,method):
+        tumor_specificity = accurate_tumor_specificity(self.uid,method)
+        self.tumor_specificity = tumor_specificity
+        return tumor_specificity
+
+    def gtex_viewer(self,kind):
+        if kind == 1:   # line plot, all tissues, count (norm or not)
+            gtex_visual_count('../data',self.uid,norm=True,out_folder='../scratch')
+        elif kind == 2: # hist plot, combined, norm count
+            gtex_visual_norm_count_combined('../data',self.uid,out_folder='../scratch')
+        elif kind == 3:  # hist plot, per tissue, number of samples that are non-zero in each tissue
+            gtex_visual_per_tissue_count('../data',self.uid,out_folder='../scratch')
 
     
     def detect_type(self):
@@ -193,8 +203,8 @@ class NeoJunction():
         self.enhanced_peptides = ep
         return ep
 
-    def immunogenecity_prediction(self):
-        reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',1,'==','SB'),])
+    def immunogenicity_prediction(self):
+        reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',0,'<=',2),])
         ep = EnhancedPeptides(reduced,hlas,1)
         for k,v in reduced.items():
             v_pep,v_hla = list(zip(*v))[0],list(zip(*v))[3]
@@ -211,9 +221,13 @@ class NeoJunction():
         return ep
 
     def visualize(self,name='../scratch/check.pdf'):
-        reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',1,'==','SB'),('deepimmuno_immunogenicity',1,'==',True),])
+        reduced = self.enhanced_peptides.filter_based_on_criterion([('netMHCpan_el',0,'<=',2),('deepimmuno_immunogenicity',1,'==','True'),])
         '''
-        {9: [('LPSPPAQEL', 2, 0, 'HLA-B*08:01'), ('LPSPPAQEL', 2, 0, 'HLA-B*08:02')], 10: []}
+        {9: [('LPSPPAQEL', 2, 0, 'HLA-B*08:01'), ('LPSPPAQEL', 2, 0, 'HLA-B*08:02'), 
+             ('SLYLLLQHR', 1, 2, 'HLA-A*68:01')], 
+        10: [('TSLYLLLQHR', 1, 3, 'HLA-A*68:01'), 
+             ('TLPSPPAQEL', 2, 1, 'HLA-A*02:01'), ('TLPSPPAQEL', 2, 1, 'HLA-A*24:02'), ('TLPSPPAQEL', 2, 1, 'HLA-B*08:01'), 
+             ('TLPSPPAQEL', 2, 1, 'HLA-B*08:02')]}
         '''
         n_axes = 0
         to_draw = []
@@ -222,8 +236,9 @@ class NeoJunction():
             n_axes += len(v)
         ncols = 4
         nrows = n_axes // ncols + 1 + 1
+        height_ratios = [0.2 if i == 0 else (1-0.2)/(nrows-1) for i in range(nrows)]
         fig = plt.figure()
-        gs = mpl.gridspec.GridSpec(nrows=nrows,ncols=ncols,height_ratios=(0.2,0.8),wspace=0.5,hspace=0.5)
+        gs = mpl.gridspec.GridSpec(nrows=nrows,ncols=ncols,height_ratios=height_ratios,wspace=0.5,hspace=0.5)
         ax_genome  = fig.add_subplot(gs[0,:])
         axes_list = []
         for i in range(1,gs.nrows):
@@ -239,7 +254,7 @@ class NeoJunction():
                 dna_first = extra + n_from_first * 3
                 dna_second = -extra + (len(aa)-n_from_first) * 3
                 binding_score = self.enhanced_peptides[len(aa)][aa][hla]['netMHCpan_el'][0]
-                immunogenicity_score = self.enhanced_peptides[len(aa)][aa][hla]['deepimmuno_immunogenicity'][0]          
+                immunogenicity_score = self.enhanced_peptides[len(aa)][aa][hla]['deepimmuno_immunogenicity'][0]   
                 # draw     
                 ax = show_candicates(ax,aa,extra,n_from_first,hla,first,second,dna_first,dna_second,binding_score,immunogenicity_score) 
             else:
@@ -504,12 +519,14 @@ if __name__ == '__main__':
     software_path = '../external/netMHCpan-4.1/netMHCpan'
     hlas = ['HLA-A*01:01','HLA-A*02:01','HLA-A*24:02','HLA-A*68:01','HLA-B*08:01','HLA-B*08:02']
     # start to query
-    nj = NeoJunction(uid='ENSG00000223572:E15.1-E15.2',count=30)
+    nj = NeoJunction(uid='ENSG00000223572:E15.1-E15.2',count=30,check_gtex=False)
+    nj.gtex_viewer(kind=1)
+    nj.infer_tumor_specificity(method='bayesian')
     nj.detect_type()
     nj.retrieve_junction_seq()
     nj.in_silico_translation()
     nj.binding_prediction(hlas=hlas)
-    nj.immunogenecity_prediction()
+    nj.immunogenicity_prediction()
     nj.visualize()
 
 
